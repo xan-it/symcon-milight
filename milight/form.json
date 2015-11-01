@@ -1,0 +1,75 @@
+{
+    "elements":
+            [
+				{
+                    "name": "ValueCIP",
+                    "type": "ValidationTextBox",
+                    "caption": "Controller-IP"
+                },
+                {
+                    "name": "ValueCPort",
+                    "type": "NumberSpinner",
+                    "caption": "Controller-Port"
+                },
+                {
+                    "name": "ValueGroup",
+                    "type": "NumberSpinner",
+                    "caption": "Group"
+				}
+            ],
+    "actions":
+            [
+                {
+                    "name": "ValueR",
+                    "type": "NumberSpinner",
+                    "caption": "R"
+                },
+                {
+                    "name": "ValueG",
+                    "type": "NumberSpinner",
+                    "caption": "G"
+                },
+                {
+                    "name": "ValueB",
+                    "type": "NumberSpinner",
+                    "caption": "B"
+                },
+                {
+                    "name": "ValueW",
+                    "type": "NumberSpinner",
+                    "caption": "W"
+                },
+                {
+                    "type": "Button",
+                    "label": "Set RGBW",
+                    "onClick": "milight_SetRGB($id, $ValueR, $ValueG, $ValueB);"
+                },
+
+                {
+                    "name": "ValueH",
+                    "type": "NumberSpinner",
+                    "caption": "Brightness"
+                },
+                {
+                    "type": "Button",
+                    "label": "Set Brightness",
+                    "onClick": "MILIGHT_SetBrightness($id, $ValueH);"
+                },
+
+                {
+                    "type": "Button",
+                    "label": "ON - white",
+                    "onClick": "MILIGHT_SendSwitch($id, 1);"
+                },
+                {
+                    "type": "Button",
+                    "label": "ON - color",
+                    "onClick": "MILIGHT_SendSwitch($id, 2);"
+                },
+                {
+                    "type": "Button",
+                    "label": "OFF",
+                    "onClick": "MILIGHT_RequestInfo($id);"
+                }
+            ]
+}

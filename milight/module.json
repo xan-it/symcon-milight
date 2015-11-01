@@ -1,0 +1,11 @@
+{
+    "id": "{B4AC93F0-FC0D-4C9B-8702-F7DBE4B79061}",
+    "name": "milight",
+    "type": 3,
+    "vendor": "milight",
+    "aliases": ["milight RGBW-Controller"],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "MILIGHT"
+}
