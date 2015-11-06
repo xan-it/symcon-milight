@@ -79,7 +79,7 @@ class milight extends IPSModule
 		//Never delete this line!
 		parent::Create();
 
-		$this->RegisterPropertyString("ValueCIP", "(set IP of the milight controller)");
+		$this->RegisterPropertyString("ValueCIP", "0.0.0.0");
 		$this->RegisterPropertyInteger("ValueCPort", 8899);
 		$this->RegisterPropertyInteger("ValueGroup", 1);
 	}
