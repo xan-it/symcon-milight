@@ -254,19 +254,23 @@ class milight extends IPSModule
 		$msg = "Link_Wi-Fi";
 		$msgreply = "/.+[.].+[.].+[.].+,[a-zA-Z0-9]{12}/";  // regex check, valid is a response of "<IP address>,<MAC address>," e.g. "192.168.1.111,AABB00112233,"
 
-		$handle = fsockopen("udp://".$this->ReadPropertyString('ValueCIP'), $commandport, $errno, $errstr, $timeout);
-		if (!$handle) {
-			$result = false;
-		} else {
-			socket_set_timeout($handle, $timeout);
-			for ($count=0; $count < $this->CommandRepeat; $count++) {
-				$write = fwrite($handle, $msg);
-				ips_sleep(50);
-			}
-			$read = fread($handle, 255);
-			if (!preg_match($msgreply, $read))
+		try {
+			$handle = fsockopen("udp://".$this->ReadPropertyString('ValueCIP'), $commandport, $errno, $errstr, $timeout);
+			if (!$handle) {
 				$result = false;
-			fclose($handle);
+			} else {
+				socket_set_timeout($handle, $timeout);
+				for ($count=0; $count < $this->CommandRepeat; $count++) {
+					$write = fwrite($handle, $msg);
+					ips_sleep(50);
+				}
+				$read = fread($handle, 255);
+				if (!preg_match($msgreply, $read))
+					$result = false;
+				fclose($handle);
+			}
+		} catch (Exception $e) {
+			$result = false;
 		}
 		if (!$result) {
 			$this->SetStatus(201);
