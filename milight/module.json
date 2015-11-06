@@ -3,7 +3,7 @@
     "name": "milight",
     "type": 3,
     "vendor": "milight",
-    "aliases": ["milight RGBW-Controller"],
+    "aliases": ["milight RGBW-Gateway"],
     "parentRequirements": [],
     "childRequirements": [],
     "implemented": [],
