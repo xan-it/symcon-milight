@@ -1,75 +1,93 @@
 {
-    "elements":
-            [
-				{
-                    "name": "ValueCIP",
-                    "type": "ValidationTextBox",
-                    "caption": "Controller-IP"
-                },
-                {
-                    "name": "ValueCPort",
-                    "type": "NumberSpinner",
-                    "caption": "Controller-Port"
-                },
-                {
-                    "name": "ValueGroup",
-                    "type": "NumberSpinner",
-                    "caption": "Group"
-				}
-            ],
-    "actions":
-            [
-                {
-                    "name": "ValueR",
-                    "type": "NumberSpinner",
-                    "caption": "R"
-                },
-                {
-                    "name": "ValueG",
-                    "type": "NumberSpinner",
-                    "caption": "G"
-                },
-                {
-                    "name": "ValueB",
-                    "type": "NumberSpinner",
-                    "caption": "B"
-                },
-                {
-                    "name": "ValueW",
-                    "type": "NumberSpinner",
-                    "caption": "W"
-                },
-                {
-                    "type": "Button",
-                    "label": "Set RGBW",
-                    "onClick": "milight_SetRGB($id, $ValueR, $ValueG, $ValueB);"
-                },
+	"elements":
+	[
+		{
+			"name": "ValueCIP",
+			"type": "ValidationTextBox",
+			"caption": "Gateway IP"
+		},
+		{
+			"name": "ValueCPort",
+			"type": "NumberSpinner",
+			"caption": "Gateway Port"
+		},
+		{
+			"name": "ValueGroup",
+			"type": "Select",
+			"caption": "Group",
+			"options": [
+				{ "label": "All", "value": 0 },
+				{ "label": "1", "value": 1 },
+				{ "label": "2", "value": 2 },
+				{ "label": "3", "value": 3 },
+				{ "label": "4", "value": 4 }
+			]
+		}
+	],
 
-                {
-                    "name": "ValueH",
-                    "type": "NumberSpinner",
-                    "caption": "Brightness"
-                },
-                {
-                    "type": "Button",
-                    "label": "Set Brightness",
-                    "onClick": "MILIGHT_SetBrightness($id, $ValueH);"
-                },
+	"actions":
+	[
+		{
+			"type": "Button",
+			"label": "OFF",
+			"onClick": "MILIGHT_SetBrightness($id, 0);"
+		},
 
-                {
-                    "type": "Button",
-                    "label": "ON - white",
-                    "onClick": "MILIGHT_SendSwitch($id, 1);"
-                },
-                {
-                    "type": "Button",
-                    "label": "ON - color",
-                    "onClick": "MILIGHT_SendSwitch($id, 2);"
-                },
-                {
-                    "type": "Button",
-                    "label": "OFF",
-                    "onClick": "MILIGHT_RequestInfo($id);"
-                }
-            ]
+		{
+			"name": "ValueR",
+			"type": "HorizontalSlider",
+			"minimum": 0,
+			"maximum": 255,
+			"caption": "Red",
+			"onChange": ""
+		},
+		{
+			"name": "ValueG",
+			"type": "HorizontalSlider",
+			"minimum": 0,
+			"maximum": 255,
+			"caption": "Green",
+			"onChange": ""
+		},
+		{
+			"name": "ValueB",
+			"type": "HorizontalSlider",
+			"minimum": 0,
+			"maximum": 255,
+			"caption": "Blue",
+			"onChange": ""
+		},
+		{
+			"type": "Button",
+			"label": "Set Color",
+			"onClick": "MILIGHT_SetRGB($id, $ValueR, $ValueG, $ValueB);"
+		},
+
+		{
+			"name": "ValueL",
+			"type": "HorizontalSlider",
+			"minimum": 0,
+			"maximum": 255,
+			"caption": "Brightness",
+			"onChange": "MILIGHT_SetBrightness($id, $ValueL);"
+		},
+		{
+			"type": "Label",
+			"label": "(brightness is set immediately after changing the slider)"
+		}
+	],
+
+	"status":
+	[
+		{
+			"code": 102,
+			"icon": "active",
+			"caption": "Gateway ok"
+		},
+		{
+			"code": 201,
+			"icon": "error",
+			"caption": "Gateway connection failed"
+		}
+	]
 }

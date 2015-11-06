@@ -1,400 +1,392 @@
 <?
 
+/*
+
+Module to control bulbs and rgbw stripes by using MiLight WiFi gateway (aka Limitless LED, IWY Light)
+
+
+documentation:
+
+http://www.limitlessled.com/dev/
+LimitlessLED v3.0 / v4.0 OpenSource API
+
+v4.0: The Port Number most importantly has changed from 50000 to 8899
+v3.0: Wifi Bridge Router Web Config: http://10.10.100.254/home.html Username: admin Password: admin
+
+All UDP Commands are 3 Bytes. First byte is from the list below, plus a fixed 2 byte suffix of 0x00 (decimal: 0) and 0x55 (decimal: 85)
+i.e. to turn all RGBW COLOR LimitlessLED Smart lights to ON then send the TCP/IP UDP packet of: 0x42 0x00 0x55
+
+Hexidecimal (byte) Decimal (integer)
+RGBW COLOR LED ALL OFF 0x41 65
+RGBW COLOR LED ALL ON 0x42 66
+DISCO SPEED SLOWER 0x43 67
+DISCO SPEED FASTER 0x44 68
+GROUP 1 ALL ON 0x45 69 (SYNC/PAIR RGB+W Bulb within 2 seconds of Wall Switch Power being turned ON)
+GROUP 1 ALL OFF 0x46 70
+GROUP 2 ALL ON 0x47 71 (SYNC/PAIR RGB+W Bulb within 2 seconds of Wall Switch Power being turned ON)
+GROUP 2 ALL OFF 0x48 72
+GROUP 3 ALL ON 0x49 73 (SYNC/PAIR RGB+W Bulb within 2 seconds of Wall Switch Power being turned ON)
+GROUP 3 ALL OFF 0x4A 74
+GROUP 4 ALL ON 0x4B 75 (SYNC/PAIR RGB+W Bulb within 2 seconds of Wall Switch Power being turned ON)
+GROUP 4 ALL OFF 0x4C 76
+DISCO MODE 0x4D 77
+SET COLOR TO WHITE (GROUP ALL) 0x42 100ms followed by: 0xC2
+SET COLOR TO WHITE (GROUP 1) 0x45 100ms followed by: 0xC5
+SET COLOR TO WHITE (GROUP 2) 0x47 100ms followed by: 0xC7
+SET COLOR TO WHITE (GROUP 3) 0x49 100ms followed by: 0xC9
+SET COLOR TO WHITE (GROUP 4) 0x4B 100ms followed by: 0xCB
+
+LIMITLESSLED RGBW DIRECTLY SETTING THE BRIGHTNESS is by a 3BYTE COMMAND: (First send the Group ON for the group you want to set the brightness for. You send the group ON command 100ms before sending the 4E 1B 55)
+Byte1: 0x4E (decimal: 78)
+Byte2: 0×02 to 0x1B (decimal range: 2 to 27) full brightness 0x1B (decimal 27)
+Byte3: Always 0×55 (decimal: 85)
+
+LIMITLESSLED RGBW COLOR SETTING is by a 3BYTE COMMAND: (First send the Group ON for the group you want to set the colour for. You send the group ON command 100ms before sending the 40)
+Byte1: 0×40 (decimal: 64)
+Byte2: 0×00 to 0xFF (255 colors) See Color Matrix Chart for the different values below.
+Byte3: Always 0×55 (decimal: 85)
+
+Byte2: Color Matrix Chart: (thanks Stephan Schaade, http://knx-user-forum.de http://mknx.github.io/smarthome/)
+    0x00 Violet
+    0x10 Royal_Blue
+    0x20 Baby_Blue
+    0x30 Aqua
+    0x40 Mint
+    0x50 Seafoam_Green
+    0x60 Green
+    0x70 Lime_Green
+    0x80 Yellow
+    0x90 Yellow_Orange
+    0xA0 Orange
+    0xB0 Red
+    0xC0 Pink
+    0xD0 Fusia
+    0xE0 Lilac
+    0xF0 Lavendar
+*/
+
+
 class milight extends IPSModule
 {
 	private $GroupOn;
 	private $GroupOff;
 	private $GroupWhite;
 	
-    public function Create()
-    {
-        //Never delete this line!
-        parent::Create();
-		
-		$this->RegisterPropertyString("ValueCIP", "192.168.1.135");
+	private $CommandRepeat = 3;
+
+	public function Create()
+	{
+		//Never delete this line!
+		parent::Create();
+
+		$this->RegisterPropertyString("ValueCIP", "(set IP of the milight controller)");
 		$this->RegisterPropertyInteger("ValueCPort", 8899);
 		$this->RegisterPropertyInteger("ValueGroup", 1);
-    }
+	}
 
-    public function ApplyChanges()
-    {
+	public function ApplyChanges()
+	{
 		//Never delete this line!
-        parent::ApplyChanges();
+	parent::ApplyChanges();
 
 		$this->RegisterProfileIntegerEx("milight.State", "", "", "", Array(
-            Array(0, 'off', '', -1),
-            Array(1, 'white', '', -1),
-            Array(2, 'color', '', -1)
-        ));
+			Array(0, 'off', '', -1),
+			Array(1, 'white', '', -1),
+			Array(2, 'color', '', -1)
+		));
 
-        $this->RegisterVariableInteger("STATE", "STATE", "milight.State", 1);
-        $this->EnableAction("STATE");
-        $this->RegisterVariableInteger("Color", "Color", "~HexColor", 2);
-        $this->EnableAction("Color");
-        $this->RegisterVariableInteger("Brightness", "Brightness", "~Intensity.255", 3);
-        $this->EnableAction("Brightness");
-    }
+		$this->RegisterVariableInteger("STATE", "STATE", "milight.State", 1);
+		$this->EnableAction("STATE");
+		$this->RegisterVariableInteger("Color", "Color", "~HexColor", 2);
+		$this->EnableAction("Color");
+		$this->RegisterVariableInteger("Brightness", "Brightness", "~Intensity.255", 3);
+		$this->EnableAction("Brightness");
+		
+		$this->TestGateway();
+	}
 
 ################## PUBLIC
     
 	/**
-	* This function will be available automatically after the module is imported with the module control.
+	* This functions will be available automatically after the module is imported with the module control.
 	* Using the custom prefix this function will be callable from PHP and JSON-RPC through:
 	*
-	* milight_RequestInfo($id);
+	* e.g. MILIGHT_SetSatte($id,$state);
 	*
 	*/
-	public function RequestInfo()
+
+	public function SetState(integer $State)
 	{
-	}
+		//$OldState = GetValueInteger($this->GetIDForIdent('STATE'));
 
-    public function SendSwitch(integer $State)
-    {
-        $OldState = GetValueInteger($this->GetIDForIdent('STATE'));
-		
-		DoInit(GetValueInteger($this->GetIDForIdent('ValueGroup')));
-		$tosend = array();
-		
 		switch ($State) {
-        case 0: // aus
-            $tosend[] = $GroupOff; // Send Group n Off
-            $this->SetHidden('Color', true);
-            $this->SetHidden('Brightness', true);
-          break;
-        case 1: // weiß
-            $tosend[] = $GroupOn;    // Send Group n On
-            $tosend[] = $GroupWhite; // Send Group n White
-            $this->SetHidden('Color', true);
-            $this->SetHidden('Brightness', false);
-          break;
-        case 2: // Farbe
-            $tosend[] = $GroupOn; // Send Group n On
-			//$tosend[] = "\x40".chr($ValueH)."\x55";
-            $this->SetHidden('Color', false);
-            $this->SetHidden('Brightness', true);
-         break;
+		case 0: // aus
+			$this->SetBrightness(0);
+			$this->SetHidden('Color', true);
+			$this->SetHidden('Brightness', true);
+			break;
+		case 1: // weiß
+			$Brightness = GetValueInteger($this->GetIDForIdent('Brightness'));
+			$this->SetBrightness($Brightness);
+			$this->SetHidden('Color', true);
+			$this->SetHidden('Brightness', false);
+			break;
+		case 2: // Farbe
+			$Color = GetValueInteger($this->GetIDForIdent('Color'));
+			$this->SetColor($Color);
+			$this->SetHidden('Color', false);
+			$this->SetHidden('Brightness', true);
+			break;
 		}
-		SendCommand($tosend);
 		$this->SetValueInteger('STATE', $State);
-    }
-
-    public function SetRGB(integer $Red, integer $Green, integer $Blue)
-    {
-		if (($Red < 0) or ( $Red > 255) or ( $Green < 0) or ( $Green > 255) or ( $Blue < 0) or ( $Blue > 255))
-            throw new Exception('Invalid Parameterset');
-		$Color = ($Red << 16) + ($Green << 8) + $Blue;
-
-		$tosend = array();
-		
-		$rgb[0] = $Red;
-		$rgb[1] = $Green;
-		$rgb[2] = $Blue;
-		$ValueHSL = rgb2hsl($rgb);
-		$Hue = $ValueHSL['Hue'];
-		$Saturation = $ValueHSL['Saturation'];
-		$Luminance  = $ValueHSL['Luminance'];
-		if ($Luminance >= 5) {
-			// send color
-			$tosend[] = $GroupOn;
-			$tosend[] = "\x40".chr($Hue)."\x55";
-			// send brightness (value range 0-255 > 2-27)
-			$Luminance2 = round(($Luminance / 9.44), 0);
-			if ($Luminance2 <  2) $Luminance2 =  2;
-			if ($Luminance2 > 27) $Luminance2 = 27;
-			$tosend[] = $GroupOn;
-			$tosend[] = "\x4e".chr($Luminance2)."\x55";
-			if ($this->SendCommand($tosend)) {
-				$this->SetValueInteger('Color', $Color);
-				$this->SetValueBoolean('STATE', 2);
-			}
-		} else {
-			$tosend[] = $GroupOff;
-			if ($this->SendCommand($tosend)) {
-				$this->SetValueInteger('Color', $Color);
-				$this->SetValueBoolean('STATE', 0);
-			}
-		}
-		$this->SetHidden('Color', false);
-		$this->SetHidden('Brightness', true);
 	}
 
-    public function SetColor(integer $Color)
-    {
+	public function SetRGB(integer $Red, integer $Green, integer $Blue)
+	{
+		if (($Red < 0) or ( $Red > 255) or ( $Green < 0) or ( $Green > 255) or ( $Blue < 0) or ( $Blue > 255))
+			IPS_LogMessage("milight", "Color must be between 0 and 255");
+
+		$this->InitGroup($this->ReadPropertyInteger('ValueGroup'));
+		$tosend = array();
+
+		//$Value = $this->rgb2milightmatrix($Red, $Green, $Blue);
+		$Value = $this->RGB2HSLmilight($Red, $Green, $Blue);
+		$Hue = $Value['Color'];
+		$Luminance  = $Value['Luminance'];
+		if ($Luminance >= 2) {
+			$tosend[] = $this->GroupOn; // Send Group n On
+			//$tosend[] = ($Hue > 0) ? "\x40".chr($Hue)."\x55" : $this->GroupWhite; // Send Group n White;
+			$tosend[] = "\x40".chr($Hue)."\x55";
+			$tosend[] = "\x4e".chr($Luminance)."\x55";
+		} else {
+			$tosend[] = $this->GroupOff; // Send Group n Off
+		}
+		$this->SendCommand($tosend);
+	}
+
+	public function SetColor(integer $Color)
+	{
 		$r = ($Color & 0x00ff0000) >> 16;
 		$g = ($Color & 0x0000ff00) >> 8;
 		$b = $Color & 0x000000ff;
-		SetRGB($r, $g, $b);
-    }
+		$this->SetRGB($r, $g, $b);
+	}
 
-    public function SetBrightness(integer $Level)
-    {
-        if (($Level < 1) or ( $Level > 255))
-            throw new Exception('Invalid Brightness-Level');
-        $tosend = array();
-		$tosend[] = $GroupOn;    // Send Group n On
-        $tosend[] = $GroupWhite; // Send Group n White
+	public function SetBrightness(integer $Level)
+	{
+		if (($Level < 0) or ( $Level > 255))
+			IPS_LogMessage("milight", "Color must be between 0 and 255");
+
+		$this->InitGroup($this->ReadPropertyInteger('ValueGroup'));
+		$tosend = array();
+
 		// send brightness (value range 0-255 > 2-27)
 		$Luminance = round(($Level / 9.44), 0);
-		if ($Luminance <  2) $Luminance =  2;
-		if ($Luminance > 27) $Luminance = 27;
-		$tosend[] = $GroupOn;
-		$tosend[] = "\x4e".chr($Luminance)."\x55";
-		if ($this->SendCommand($tosend)) {
-			$this->SetValueInteger('Color', $Color);
-			$this->SetValueBoolean('STATE', 1);
+		if ($Luminance > 27)
+			$Luminance = 27;
+		if ($Luminance >= 2) {
+			$tosend[] = $this->GroupOn;    // Send Group n On
+			$tosend[] = $this->GroupWhite; // Send Group n White
+			$tosend[] = "\x4e".chr($Luminance)."\x55";
+		} else {
+			$tosend[] = $this->GroupOff; // Send Group n Off
 		}
-		$this->SetHidden('Color', true);
-		$this->SetHidden('Brightness', false);
-    }
+		$this->SendCommand($tosend);
+	}
 
-	
+
 ################## ActionHandler
 
-    public function RequestAction($Ident, $Value)
-    {
-IPS_LogMessage(__CLASS__, __FUNCTION__ . ' Ident:.' . $Ident . ' = ' . $Value); //     
-//unset($Value);
-        switch ($Ident)
-        {
-            case 'STATE':
-                $this->SendSwitch($Value); //SendInit();
-                break;
-            case 'Color':
-                $this->SetColor($Value);
-                break;
-            case 'Brightness':
-                $this->SetBrightness($Value);
-                break;
-            default:
-                throw new Exception('Invalid Ident');
-                break;
-        }
-    }
+	public function RequestAction($Ident, $Value)
+	{
+		switch ($Ident) {
+			case 'STATE':
+				$this->SetValueInteger('STATE', $Value);
+				$this->SetState($Value);
+				break;
+			case 'Color':
+				$this->SetValueInteger('Color', $Value);
+				$this->SetColor($Value);
+				break;
+			case 'Brightness':
+				$this->SetValueInteger('Brightness', $Value);
+				$this->SetBrightness($Value);
+				break;
+			default:
+				throw new Exception('Invalid Ident');
+			break;
+		}
+	}
 
 ################## PRIVATE    
 
-    private function SendCommand($Data)
-    {
-        if (!$this->lock('InitRun'))
-            return;
-        else
-            $this->unlock('InitRun');
-        if ($this->lock('SendCommand'))
-        {
-            try
-            {                
-				$sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-				foreach ($$Data AS $msg) {
-					$len = strlen($msg);
-					socket_sendto($sock, $msg, $len, 0, '192.168.1.135', 8899);
-					//socket_sendto($sock, $msg, $len, 0, $this->ReadPropertyString("ValueCIP"), $this->ReadPropertyInteger("ValueCPort"));
-					ips_sleep(100);
+	private function SendCommand($Data)
+	{
+		$result = true;
+		try
+		{                
+			foreach ($Data AS $msg) {
+				for ($count=0; $count < $this->CommandRepeat; $count++) {
+					if ($sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP)) {
+						$res = socket_sendto($sock, $msg, strlen($msg), 0, $this->ReadPropertyString('ValueCIP'), $this->ReadPropertyInteger('ValueCPort'));
+						if ($res == -1)
+							$result = false;
+						socket_close($sock);
+						ips_sleep(100);
+					}
 				}
-				socket_close($sock);
-                $this->unlock('SendCommand');
 			}
-            catch (Exception $exc)
-            {
-                $this->unlock('SendCommand');
-                throw new $exc;
-            }
-        }
-        else
-        {
-            throw new Exception('SendCommand is blocked.');
-        }
-    }
+		}
+		catch (Exception $exc) {
+			$result = false;
+		}
+		if (!$result) {
+			$this->SetStatus(201);
+			IPS_LogMessage("milight", "socket error");
+		}
+	}
 
-    private function DoInit($Group)
-    {
+	private function TestGateway()
+	{
+		$timeout = 1;
+		$commandport = 48899;
+		$result = true;
+		$msg = "Link_Wi-Fi";
+		$msgreply = "/.+[.].+[.].+[.].+,[a-zA-Z0-9]{12}/";  // regex check, valid is a response of "<IP address>,<MAC address>," e.g. "192.168.1.111,AABB00112233,"
+
+		$handle = fsockopen("udp://".$this->ReadPropertyString('ValueCIP'), $commandport, $errno, $errstr, $timeout);
+		if (!$handle) {
+			$result = false;
+		} else {
+			socket_set_timeout($handle, $timeout);
+			for ($count=0; $count < $this->CommandRepeat; $count++) {
+				$write = fwrite($handle, $msg);
+				ips_sleep(50);
+			}
+			$read = fread($handle, 255);
+			if (!preg_match($msgreply, $read))
+				$result = false;
+			fclose($handle);
+		}
+		if (!$result) {
+			$this->SetStatus(201);
+			IPS_LogMessage("milight", "socket error");
+		} else {
+			$this->SetStatus(102);
+		}
+	}
+
+	private function InitGroup($Group)
+	{
 		switch ($Group) {
 			case 1: // Group 1
-				$GroupOn    = "\x45\x00\x55";
-				$GroupOff   = "\x46\x00\x55";
-				$GroupWhite = "\xc5\x00\x55";
+				$this->GroupOn    = "\x45\x00\x55";
+				$this->GroupOff   = "\x46\x00\x55";
+				$this->GroupWhite = "\xc5\x00\x55";
 				break;
 			case 2: // Group 2
-				$GroupOn    = "\x47\x00\x55";
-				$GroupOff   = "\x48\x00\x55";
-				$GroupWhite = "\xc7\x00\x55";
+				$this->GroupOn    = "\x47\x00\x55";
+				$this->GroupOff   = "\x48\x00\x55";
+				$this->GroupWhite = "\xc7\x00\x55";
 				break;
 			case 3: // Group 3
-				$GroupOn    = "\x49\x00\x55";
-				$GroupOff   = "\x4a\x00\x55";
-				$GroupWhite = "\xc9\x00\x55";
+				$this->GroupOn    = "\x49\x00\x55";
+				$this->GroupOff   = "\x4a\x00\x55";
+				$this->GroupWhite = "\xc9\x00\x55";
 				break;
 			case 4: // Group 4
-				$GroupOn    = "\x4b\x00\x55";
-				$GroupOff   = "\x4c\x00\x55";
-				$GroupWhite = "\xcb\x00\x55";
+				$this->GroupOn    = "\x4b\x00\x55";
+				$this->GroupOff   = "\x4c\x00\x55";
+				$this->GroupWhite = "\xcb\x00\x55";
 				break;
-			default: // default to Group 1
-				$GroupOn    = "\x45\x00\x55";
-				$GroupOff   = "\x46\x00\x55";
-				$GroupWhite = "\xc5\x00\x55";
+			default: // default to Group 0 (ALL)
+				$this->GroupOn    = "\x42\x00\x55";
+				$this->GroupOff   = "\x41\x00\x55";
+				$this->GroupWhite = "\xc2\x00\x55";
 				break;
 		}
 		return true;
-    }
-
-################## DATAPOINTS
-
-    public function ReceiveData($JSONString)
-    {
-        IPS_LogMessage('RecData', utf8_decode($JSONString));
-        IPS_LogMessage(__CLASS__, __FUNCTION__); // 
-		//FIXME Bei Status inaktiv abbrechen
-		$data = json_decode($JSONString);
-		if ($data->DataID <> '{8E870253-4594-43B5-A91D-B79376E30A20}')
-			return false;
-        $this->SetReplyEvent(TRUE);
-        return true;
-    }
-
-################## SEMAPHOREN Helper  - private  
-
-    private function lock($ident)
-    {
-        for ($i = 0; $i < 100; $i++)
-        {
-            if (IPS_SemaphoreEnter("milight_" . (string) $this->InstanceID . (string) $ident, 1))
-            {
-//                IPS_LogMessage((string)$this->InstanceID,"Lock:LMS_" . (string) $this->InstanceID . (string) $ident);
-                return true;
-            }
-            else
-            {
-                IPS_Sleep(mt_rand(1, 5));
-            }
-        }
-        return false;
-    }
-
-    private function unlock($ident)
-    {
-        IPS_SemaphoreLeave("milight_" . (string) $this->InstanceID . (string) $ident);
-    }
-
-################## DUMMYS / WOARKAROUNDS - protected
-
-    private function SetValueBoolean($Ident, $value)
-    {
-        $id = $this->GetIDForIdent($Ident);
-        SetValueBoolean($id, $value);
-    }
-
-    private function SetValueInteger($Ident, $value)
-    {
-        $id = $this->GetIDForIdent($Ident);
-        SetValueInteger($id, $value);
-    }
-
-    private function SetValueString($Ident, $value)
-    {
-      $id = $this->GetIDForIdent($Ident);
-      SetValueString($id, $value);
-    }
-
-/*
-    protected function HasActiveParent()
-    {
-        $instance = IPS_GetInstance($this->InstanceID);
-        if ($instance['ConnectionID'] > 0)
-        {
-            $parent = IPS_GetInstance($instance['ConnectionID']);
-            if ($parent['InstanceStatus'] == 102)
-                return true;
-        }
-        return false;
-    }
-*/
-
-    protected function GetParent()
-    {
-        $instance = IPS_GetInstance($this->InstanceID);
-        return ($instance['ConnectionID'] > 0) ? $instance['ConnectionID'] : false;
-    }
-
-    protected function RegisterProfileIntegerEx($Name, $Icon, $Prefix, $Suffix, $Associations)
-    {
-        if (sizeof($Associations) === 0)
-        {
-            $MinValue = 0;
-            $MaxValue = 0;
-        }
-        else
-        {
-            $MinValue = $Associations[0][0];
-            $MaxValue = $Associations[sizeof($Associations) - 1][0];
-        }
-		if (!IPS_VariableProfileExists($Name))
-        {
-            IPS_CreateVariableProfile($Name, 1);
-        } else {
-            $profile = IPS_GetVariableProfile($Name);
-            if ($profile['ProfileType'] != 1)
-                throw new Exception("Variable profile type does not match for profile " . $Name);
-        }
-        IPS_SetVariableProfileIcon($Name, $Icon);
-        IPS_SetVariableProfileText($Name, $Prefix, $Suffix);
-        IPS_SetVariableProfileValues($Name, $MinValue, $MaxValue, 0);
-
-        foreach ($Associations as $Association)
-        {
-            IPS_SetVariableProfileAssociation($Name, $Association[0], $Association[1], $Association[2], $Association[3]);
-        }
-    }
-
-	// Funktion übernommen von www.php.net und an eigene Bedürfnisse angepasst
-	// Convert RGB colors array into HSL array
-	// @param array $ RGB colors set, each color component with range 0 to 255
-	// @return array HSL set, each color component with range 0 to 1
-    function rgb2hsl($rgb){
-        $clrR = ($rgb[0]);
-        $clrG = ($rgb[1]);
-        $clrB = ($rgb[2]);
-
-        $clrMin = min($clrR, $clrG, $clrB);
-        $clrMax = max($clrR, $clrG, $clrB);
-        $deltaMax = $clrMax - $clrMin;
-
-        $L = ($clrMax + $clrMin) / 510;
-
-        if (0 == $deltaMax){
-            $H = 0;
-            $S = 0;
-        }
-        else{
-            if (0.5 > $L){
-                $S = $deltaMax / ($clrMax + $clrMin);
-            }
-            else{
-                $S = $deltaMax / (510 - $clrMax - $clrMin);
-            }
-
-            if ($clrMax == $clrR) {
-                $H = ($clrG - $clrB) / (6.0 * $deltaMax);
-            }
-            else if ($clrMax == $clrG) {
-                $H = 1/3 + ($clrB - $clrR) / (6.0 * $deltaMax);
-            }
-            else {
-                $H = 2 / 3 + ($clrR - $clrG) / (6.0 * $deltaMax);
-            }
-
-            if (0 > $H) $H += 1;
-            if (1 < $H) $H -= 1;
-        }
-
-         $H = round(($H * 255), 0);
-         $S = round(($S * 255), 0);
-         $L = round(($L * 255), 0);
-
-      $HSLColor = array( 'Hue' => $H, 'Saturation' => $S, 'Luminance' => $L );
-
-      return $HSLColor;
 	}
-	
+
+	protected function RGB2HSLmilight($R, $G, $B) {
+		if (($R < 0) or ( $R > 255) or ( $G < 0) or ( $G > 255) or ( $B < 0) or ( $B > 255))
+			IPS_LogMessage("milight", "Color must be between 0 and 255");
+		$R = ($R / 255);
+		$G = ($G / 255);
+		$B = ($B / 255);
+		$cMin = min($R, $G, $B);
+		$cMax = max($R, $G, $B);
+		$Chroma = $cMax - $cMin;
+		$L = ($cMax + $cMin) / 2 * 27;
+		//$V = $maxRGB * 27;
+		if ($Chroma == 0) {
+			$H = 0;
+		} else {
+			if ($R == $cMin) {
+				$H = 1 - (($B - $G) / $Chroma);
+			} elseif ($B == $cMin) {
+				$H = 3 - (($G - $R) / $Chroma);
+			} elseif ($G == $cMin) {
+				$H = 5 - (($R - $B) / $Chroma);
+			}
+			$H = $H / 6 * 255;
+		}
+		//IPS_LogMessage("rgb2hslmilight", "$R / $G / $B - $H / $L");
+		return array('Color' => round($H), 'Luminance' => round($L));
+	}
+
+
+################## helper functions / wrapper
+
+	protected function SetHidden($Ident, $value)
+	{
+		$id = $this->GetIDForIdent($Ident);
+		IPS_SetHidden($id, $value);
+	}
+
+	protected function SetValueBoolean($Ident, $value)
+	{
+		$id = $this->GetIDForIdent($Ident);
+		SetValueBoolean($id, $value);
+	}
+
+	protected function SetValueInteger($Ident, $value)
+	{
+		$id = $this->GetIDForIdent($Ident);
+		SetValueInteger($id, $value);
+	}
+
+	protected function SetValueString($Ident, $value)
+	{
+		$id = $this->GetIDForIdent($Ident);
+		SetValueString($id, $value);
+	}
+
+	protected function RegisterProfileIntegerEx($Name, $Icon, $Prefix, $Suffix, $Associations)
+	{
+		if (sizeof($Associations) === 0) {
+			$MinValue = 0;
+			$MaxValue = 0;
+		} else {
+			$MinValue = $Associations[0][0];
+			$MaxValue = $Associations[sizeof($Associations) - 1][0];
+		}
+		if (!IPS_VariableProfileExists($Name)) {
+			IPS_CreateVariableProfile($Name, 1);
+		} else {
+			$profile = IPS_GetVariableProfile($Name);
+			if ($profile['ProfileType'] != 1)
+				throw new Exception("Variable profile type does not match for profile " . $Name);
+		}
+		IPS_SetVariableProfileIcon($Name, $Icon);
+		IPS_SetVariableProfileText($Name, $Prefix, $Suffix);
+		IPS_SetVariableProfileValues($Name, $MinValue, $MaxValue, 0);
+
+		foreach ($Associations as $Association) {
+			IPS_SetVariableProfileAssociation($Name, $Association[0], $Association[1], $Association[2], $Association[3]);
+		}
+	}
+
 }
 
 ?>
