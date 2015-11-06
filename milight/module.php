@@ -81,7 +81,7 @@ class milight extends IPSModule
 
 		$this->RegisterPropertyString("ValueCIP", "255.255.255.255");
 		$this->RegisterPropertyInteger("ValueCPort", 8899);
-		$this->RegisterPropertyInteger("ValueGroup", 1);
+		$this->RegisterPropertyInteger("ValueGroup", 0);
 	}
 
 	public function ApplyChanges()
