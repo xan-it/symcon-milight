@@ -101,6 +101,7 @@ class milight extends IPSModule
 		$this->EnableAction("Color");
 		$this->RegisterVariableInteger("Brightness", "Brightness", "~Intensity.255", 3);
 		$this->EnableAction("Brightness");
+		$this->SetVisibility(0);
 		
 		$this->TestGateway();
 	}
@@ -122,23 +123,17 @@ class milight extends IPSModule
 		switch ($State) {
 		case 0: // aus
 			$this->SetBrightness(0);
-			$this->SetHidden('Color', true);
-			$this->SetHidden('Brightness', true);
 			break;
 		case 1: // weiß
 			$Brightness = GetValueInteger($this->GetIDForIdent('Brightness'));
 			$this->SetBrightness($Brightness);
-			$this->SetHidden('Color', true);
-			$this->SetHidden('Brightness', false);
 			break;
 		case 2: // Farbe
 			$Color = GetValueInteger($this->GetIDForIdent('Color'));
 			$this->SetColor($Color);
-			$this->SetHidden('Color', false);
-			$this->SetHidden('Brightness', true);
 			break;
 		}
-		$this->SetValueInteger('STATE', $State);
+		$this->SetVisibility($State);
 	}
 
 	public function SetRGB(integer $Red, integer $Green, integer $Blue)
@@ -219,6 +214,25 @@ class milight extends IPSModule
 	}
 
 ################## PRIVATE    
+
+	private function SetVisibility(integer $State)
+	{
+		switch ($State) {
+		case 0: // aus
+			$this->SetHidden('Color', true);
+			$this->SetHidden('Brightness', true);
+			break;
+		case 1: // weiß
+			$this->SetHidden('Color', true);
+			$this->SetHidden('Brightness', false);
+			break;
+		case 2: // Farbe
+			$this->SetHidden('Color', false);
+			$this->SetHidden('Brightness', true);
+			break;
+		}
+		$this->SetValueInteger('STATE', $State);
+	}
 
 	private function SendCommand($Data)
 	{
