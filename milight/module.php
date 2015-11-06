@@ -269,7 +269,7 @@ class milight extends IPSModule
 		$msgreply = "/.+[.].+[.].+[.].+,[a-zA-Z0-9]{12}/";  // regex check, valid is a response of "<IP address>,<MAC address>," e.g. "192.168.1.111,AABB00112233,"
 
 		try {
-			$handle = fsockopen("udp://".$this->ReadPropertyString('ValueCIP'), $commandport, $errno, $errstr, $timeout);
+			$handle = @fsockopen("udp://".$this->ReadPropertyString('ValueCIP'), $commandport, $errno, $errstr, $timeout);
 			if (!$handle) {
 				$result = false;
 			} else {
