@@ -63,3 +63,4 @@ IPS-Modul zur Steuerung des milight-RGBW-Gateways (auch bekannt als Limitless LE
 ## 6. Changelog
 
    0.1. : erste Beta-Version für IPS 4.x
+   0.2. : Anpassungen für PHP 7.x (Symcon 5.x)
