@@ -116,7 +116,7 @@ class milight extends IPSModule
 	*
 	*/
 
-	public function SetState(integer $State)
+	public function SetState(int $State)
 	{
 		//$OldState = GetValueInteger($this->GetIDForIdent('STATE'));
 
@@ -136,7 +136,7 @@ class milight extends IPSModule
 		$this->SetVisibility($State);
 	}
 
-	public function SetRGB(integer $Red, integer $Green, integer $Blue)
+	public function SetRGB(int $Red, int $Green, int $Blue)
 	{
 		if (($Red < 0) or ( $Red > 255) or ( $Green < 0) or ( $Green > 255) or ( $Blue < 0) or ( $Blue > 255))
 			IPS_LogMessage("milight", "Color must be between 0 and 255");
@@ -159,7 +159,7 @@ class milight extends IPSModule
 		$this->SendCommand($tosend);
 	}
 
-	public function SetColor(integer $Color)
+	public function SetColor(int $Color)
 	{
 		$r = ($Color & 0x00ff0000) >> 16;
 		$g = ($Color & 0x0000ff00) >> 8;
@@ -167,7 +167,7 @@ class milight extends IPSModule
 		$this->SetRGB($r, $g, $b);
 	}
 
-	public function SetBrightness(integer $Level)
+	public function SetBrightness(int $Level)
 	{
 		if (($Level < 0) or ( $Level > 255))
 			IPS_LogMessage("milight", "Color must be between 0 and 255");
@@ -215,7 +215,7 @@ class milight extends IPSModule
 
 ################## PRIVATE    
 
-	private function SetVisibility(integer $State)
+	private function SetVisibility(int $State)
 	{
 		switch ($State) {
 		case 0: // aus
